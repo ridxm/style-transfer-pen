@@ -1,0 +1,91 @@
+// rotation_viewer.pde
+// 3D viewer for the Nano 33 BLE Sense Rev2 pen.
+// Expects CSV lines "roll,pitch,yaw\n" over serial at 115200 baud.
+//
+// Setup:
+//   1. Install Processing from https://processing.org
+//   2. Sketch -> Import Library... -> Add Library -> search "Serial" (it's built-in; skip if already)
+//   3. Plug in the board. Close the PlatformIO serial monitor (only ONE program can own the port).
+//   4. Edit PORT_INDEX below if the wrong port opens — the console prints the list on startup.
+//   5. Press Run.
+
+import processing.serial.*;
+
+Serial port;
+final int PORT_INDEX = 2;        // index into Serial.list() — change if needed
+final int BAUD       = 115200;
+
+float roll  = 0;
+float pitch = 0;
+float yaw   = 0;
+
+void setup() {
+  size(800, 600, P3D);
+  smooth(8);
+
+  println("Available serial ports:");
+  String[] ports = Serial.list();
+  for (int i = 0; i < ports.length; i++) println("  [" + i + "] " + ports[i]);
+
+  if (ports.length == 0) {
+    println("No serial ports found — plug in the board and restart.");
+    return;
+  }
+
+  port = new Serial(this, ports[PORT_INDEX], BAUD);
+  port.bufferUntil('\n');
+}
+
+void draw() {
+  background(20);
+  lights();
+
+  translate(width / 2, height / 2, 0);
+
+  // Convert the board's frame to Processing's screen frame.
+  // (Tweak signs here if the box rotates the wrong way for your pen orientation.)
+  rotateX(radians(pitch));
+  rotateY(radians(-yaw));
+  rotateZ(radians(roll));
+
+  // Pen body: a flat rectangular box
+  noStroke();
+  fill(80, 170, 255);
+  box(280, 40, 80);
+
+  // Tip marker (shows which end is "forward")
+  pushMatrix();
+  translate(160, 0, 0);
+  fill(255, 80, 80);
+  box(40, 20, 20);
+  popMatrix();
+
+  // HUD
+  camera();
+  hint(DISABLE_DEPTH_TEST);
+  fill(230);
+  textSize(14);
+  text("roll  = " + nf(roll,  1, 1), 12, 20);
+  text("pitch = " + nf(pitch, 1, 1), 12, 38);
+  text("yaw   = " + nf(yaw,   1, 1), 12, 56);
+  text("Hold still for ~5s on startup so the filter converges.", 12, height - 12);
+  hint(ENABLE_DEPTH_TEST);
+}
+
+void serialEvent(Serial p) {
+  String line = p.readStringUntil('\n');
+  if (line == null) return;
+  line = trim(line);
+  if (line.length() == 0) return;
+
+  String[] parts = split(line, ',');
+  if (parts.length != 3) return;
+
+  try {
+    roll  = float(parts[0]);
+    pitch = float(parts[1]);
+    yaw   = float(parts[2]);
+  } catch (Exception e) {
+    // ignore malformed lines
+  }
+}
