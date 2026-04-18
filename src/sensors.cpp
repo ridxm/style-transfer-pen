@@ -2,7 +2,11 @@
 #include "Arduino_BMI270_BMM150.h"
 #include <MadgwickAHRS.h>
 
-static const int   FSR_PIN       = A0;
+// First NUM_FSR analog pins on the Nano 33 BLE. Wire FSR 0 to A0, FSR 1 to A1, ...
+static const int FSR_PINS[NUM_FSR] = {
+  A0, A1, A2, A3, A4, A5, A6, A7
+};
+
 static const float FILTER_HZ     = 100.0f;   // must match the loop cadence in main.cpp
 static const int   CAL_SAMPLES   = 200;      // ~2 s at 100 Hz
 
@@ -56,7 +60,9 @@ bool sensors_begin() {
 }
 
 void sensors_read(Readings& out) {
-  out.fsr = analogRead(FSR_PIN);
+  for (int i = 0; i < NUM_FSR; i++) {
+    out.fsr[i] = analogRead(FSR_PINS[i]);
+  }
 
   if (IMU.accelerationAvailable())  IMU.readAcceleration(s_ax, s_ay, s_az);
   if (IMU.gyroscopeAvailable())     IMU.readGyroscope(s_gx, s_gy, s_gz);
@@ -79,23 +85,33 @@ void sensors_read(Readings& out) {
 }
 
 void sensors_print(const Readings& r) {
-  Serial.print(r.fsr);  Serial.print('\t');
-  Serial.print(r.ax, 3); Serial.print('\t');
-  Serial.print(r.ay, 3); Serial.print('\t');
-  Serial.print(r.az, 3); Serial.print('\t');
-  Serial.print(r.gx, 2); Serial.print('\t');
-  Serial.print(r.gy, 2); Serial.print('\t');
-  Serial.print(r.gz, 2); Serial.print('\t');
-  Serial.print(r.mx, 2); Serial.print('\t');
-  Serial.print(r.my, 2); Serial.print('\t');
-  Serial.print(r.mz, 2); Serial.print('\t');
-  Serial.print(r.roll, 2);  Serial.print('\t');
-  Serial.print(r.pitch, 2); Serial.print('\t');
-  Serial.println(r.yaw, 2);
+  for (int i = 0; i < NUM_FSR; i++) {
+    Serial.print("FSR"); Serial.print(i); Serial.print('=');
+    Serial.print(r.fsr[i]);
+    Serial.print(' ');
+  }
+  Serial.print(" AX="); Serial.print(r.ax, 3);
+  Serial.print(" AY=");  Serial.print(r.ay, 3);
+  Serial.print(" AZ=");  Serial.print(r.az, 3);
+  Serial.print("  GX="); Serial.print(r.gx, 2);
+  Serial.print(" GY=");  Serial.print(r.gy, 2);
+  Serial.print(" GZ=");  Serial.print(r.gz, 2);
+  Serial.print("  MX="); Serial.print(r.mx, 2);
+  Serial.print(" MY=");  Serial.print(r.my, 2);
+  Serial.print(" MZ=");  Serial.print(r.mz, 2);
+  Serial.print("  ROLL=");  Serial.print(r.roll, 1);
+  Serial.print(" PITCH=");  Serial.print(r.pitch, 1);
+  Serial.print(" YAW=");    Serial.println(r.yaw, 1);
 }
 
+// CSV line consumed by the Processing viewer: "roll,pitch,yaw,fsr\n"
 void sensors_print_rpy(const Readings& r) {
-  Serial.print(r.roll, 2);  Serial.print(',');
-  Serial.print(r.pitch, 2); Serial.print(',');
-  Serial.println(r.yaw, 2);
+  Serial.print("roll = ");  Serial.print(r.roll, 2);  Serial.print(", ");
+  Serial.print("pitch = "); Serial.print(r.pitch, 2); Serial.print(", ");
+  Serial.print("yaw = ");   Serial.print(r.yaw, 2);
+  for (int i = 0; i < NUM_FSR; i++) {
+    Serial.print(", fsr"); Serial.print(i); Serial.print(" = ");
+    Serial.print(r.fsr[i]);
+  }
+  Serial.println();
 }

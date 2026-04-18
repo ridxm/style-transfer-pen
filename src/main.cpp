@@ -25,5 +25,5 @@ void loop() {
 
   Readings r;
   sensors_read(r);
-  sensors_print_rpy(r);   // "roll,pitch,yaw\n" — consumed by Processing viewer
+  sensors_print_rpy(r); 
 }

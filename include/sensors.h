@@ -1,8 +1,12 @@
 #pragma once
 #include <Arduino.h>
 
+// Number of FSRs wired to the board. Set to however many you actually
+// have connected (1 through 8). Pins used are A0..A[NUM_FSR-1].
+#define NUM_FSR 8
+
 struct Readings {
-  int   fsr;                 // 0–4095 (12-bit ADC)
+  int   fsr[NUM_FSR];        // 0–4095 per sensor (12-bit ADC)
   float ax, ay, az;          // accelerometer, g
   float gx, gy, gz;          // gyroscope, deg/s
   float mx, my, mz;          // magnetometer, uT
@@ -17,8 +21,8 @@ bool sensors_begin();
 // Call this in a loop at a roughly steady cadence.
 void sensors_read(Readings& out);
 
-// Print one tab-separated line (FSR + 9 IMU axes + roll/pitch/yaw).
+// Human-readable labeled line: FSR0=..FSR7=.. AX=.. ... ROLL=.. PITCH=.. YAW=..
 void sensors_print(const Readings& r);
 
-// Print CSV "roll,pitch,yaw" — consumed by the Processing viewer.
+// Labeled line with every field — one per loop (for serial monitor use).
 void sensors_print_rpy(const Readings& r);

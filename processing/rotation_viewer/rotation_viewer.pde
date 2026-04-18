@@ -1,13 +1,12 @@
 // rotation_viewer.pde
 // 3D viewer for the Nano 33 BLE Sense Rev2 pen.
-// Expects CSV lines "roll,pitch,yaw\n" over serial at 115200 baud.
+// Expects CSV lines "roll,pitch,yaw,fsr\n" over serial at 115200 baud.
 //
 // Setup:
 //   1. Install Processing from https://processing.org
-//   2. Sketch -> Import Library... -> Add Library -> search "Serial" (it's built-in; skip if already)
-//   3. Plug in the board. Close the PlatformIO serial monitor (only ONE program can own the port).
-//   4. Edit PORT_INDEX below if the wrong port opens — the console prints the list on startup.
-//   5. Press Run.
+//   2. Plug in the board. Close the PlatformIO serial monitor (only ONE program can own the port).
+//   3. Edit PORT_INDEX below if the wrong port opens — the console prints the list on startup.
+//   4. Press Run.
 
 import processing.serial.*;
 
@@ -18,6 +17,7 @@ final int BAUD       = 115200;
 float roll  = 0;
 float pitch = 0;
 float yaw   = 0;
+int   fsr   = 0;                 // 0–4095 (12-bit ADC)
 
 void setup() {
   size(800, 600, P3D);
@@ -42,8 +42,6 @@ void draw() {
 
   translate(width / 2, height / 2, 0);
 
-  // Convert the board's frame to Processing's screen frame.
-  // (Tweak signs here if the box rotates the wrong way for your pen orientation.)
   // Box long axis is along screen X, so:
   //   rotateX = spin about long axis = roll
   //   rotateY = pan left/right         = yaw
@@ -57,10 +55,14 @@ void draw() {
   fill(80, 170, 255);
   box(280, 40, 80);
 
-  // Tip marker (shows which end is "forward")
+  // Tip marker — brightens as force on the FSR increases
+  float pressure = constrain(fsr / 4095.0, 0, 1);
+  int tipR = (int)lerp(80,  255, pressure);
+  int tipG = (int)lerp(80,   40, pressure);
+  int tipB = (int)lerp(80,   40, pressure);
   pushMatrix();
   translate(160, 0, 0);
-  fill(255, 80, 80);
+  fill(tipR, tipG, tipB);
   box(40, 20, 20);
   popMatrix();
 
@@ -69,9 +71,10 @@ void draw() {
   hint(DISABLE_DEPTH_TEST);
   fill(230);
   textSize(14);
-  text("roll  = " + nf(roll,  1, 1), 12, 20);
-  text("pitch = " + nf(pitch, 1, 1), 12, 38);
-  text("yaw   = " + nf(yaw,   1, 1), 12, 56);
+  text("roll  = " + nf(roll,  1, 1),  12, 20);
+  text("pitch = " + nf(pitch, 1, 1),  12, 38);
+  text("yaw   = " + nf(yaw,   1, 1),  12, 56);
+  text("fsr   = " + fsr + "  (" + nf(pressure * 100, 1, 0) + "%)", 12, 74);
   text("Hold still for ~5s on startup so the filter converges.", 12, height - 12);
   hint(ENABLE_DEPTH_TEST);
 }
@@ -81,14 +84,16 @@ void serialEvent(Serial p) {
   if (line == null) return;
   line = trim(line);
   if (line.length() == 0) return;
+  if (line.charAt(0) == '#') return;   // skip firmware log lines
 
   String[] parts = split(line, ',');
-  if (parts.length != 3) return;
+  if (parts.length < 4) return;
 
   try {
     roll  = float(parts[0]);
     pitch = float(parts[1]);
     yaw   = float(parts[2]);
+    fsr   = int(parts[3]);
   } catch (Exception e) {
     // ignore malformed lines
   }
